@@ -16,6 +16,9 @@ import com.movies.moviecatalogservice.models.CatalogItem;
 import com.movies.moviecatalogservice.models.Movie;
 import com.movies.moviecatalogservice.models.Rating;
 import com.movies.moviecatalogservice.models.UserRating;
+import com.movies.moviecatalogservice.services.MovieInfo;
+import com.movies.moviecatalogservice.services.UserRatingInfo;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 
 @RestController
 @RequestMapping("/catalog")
@@ -27,24 +30,21 @@ public class MovieCatalogResource {
 	@Autowired
 	private WebClient.Builder webClient;
 	
+	@Autowired
+	MovieInfo movieInfo;
+	
+	@Autowired
+	UserRatingInfo userRatingInfo;
+	
 	@RequestMapping("/{userId}")
 	public List<CatalogItem> getCatalog(@PathVariable String userId){
 		
 		//getting url("localhost") from eureka server
-		UserRating ratings = restTemplate.getForObject("http://ratings-data-service/ratingsdata/users/" + userId, UserRating.class);
+		UserRating ratings = userRatingInfo.getUserRating(userId);
 		return ratings.getUserRatings().stream().map(rating -> {
-			Movie movie = restTemplate.getForObject("http://movie-info-service/movies/" + rating.getMovieId(), Movie.class);
-			
-			/* Movie movie = webClient.build()
-			.get()
-			.uri("http://localhost:8082/movies/" + rating.getMovieId())
-			.retrieve()
-			.bodyToMono(Movie.class)
-			.block();
-			*/
-			
-			return new CatalogItem(movie.getName(), "desc", rating.getRating());
+			return movieInfo.getCatalogItem(rating);
 		}).collect(Collectors.toList());
 		
 	}
+	
 }
